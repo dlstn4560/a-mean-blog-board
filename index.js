@@ -3,6 +3,7 @@ import dotenv from "dotenv";
 import bodyParser from "body-parser";
 import methodOverride from "method-override";
 import mongoose from "mongoose";
+import helmet from "helmet";
 
 dotenv.config();
 
@@ -32,9 +33,18 @@ app.use(express.static(`${__dirname}/public`));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(methodOverride("_method"));
+app.use(helmet());
+app.disable("x-powered-by");
 
 // Routes
+// Routes - Home
 app.use("/", require("./routes/home"));
+
+// Routes - Posts
+app.use("/posts", require("./routes/posts"));
+
+// Routes - Users
+app.use("/users", require("./routes/users"));
 
 // Port Setting
 app.listen(PORT, () => {

@@ -4,6 +4,8 @@ import bodyParser from "body-parser";
 import methodOverride from "method-override";
 import mongoose from "mongoose";
 import helmet from "helmet";
+import flash from "connect-flash";
+import session from "express-session";
 
 dotenv.config();
 
@@ -35,6 +37,14 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use(methodOverride("_method"));
 app.use(helmet());
 app.disable("x-powered-by");
+app.use(flash());
+app.use(
+  session({
+    secret: process.env.SESSION_SECRET,
+    resave: true,
+    saveUninitialized: true,
+  })
+);
 
 // Routes
 // Routes - Home

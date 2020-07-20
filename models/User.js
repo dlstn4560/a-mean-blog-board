@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import bcrypt from "bcryptjs";
 
 // User schema
 const userSchema = mongoose.Schema(
@@ -6,6 +7,8 @@ const userSchema = mongoose.Schema(
     username: {
       type: String,
       required: [true, "Username is required!"],
+      match: [/^.{4,12}$/, "Should be 4-12 characters!"],
+      trim: true,
       unique: true,
     },
     password: {
@@ -13,8 +16,19 @@ const userSchema = mongoose.Schema(
       required: [true, "Password is required!"],
       select: false,
     },
-    name: { type: String, required: [true, "Name is required!"] },
-    email: { type: String },
+    name: {
+      type: String,
+      required: [true, "Name is required!"],
+      match: [/^.{1,12}$/, "Should be 1-12 characters!"],
+      trim: true,
+    },
+    email: {
+      type: String,
+      match: [
+        /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/,
+        "Should be a valid email address!",
+      ],
+    },
   },
   {
     // toObject 함수를 사용하면 plain javascript object 로 변경할 수 있다
@@ -64,7 +78,10 @@ userSchema
   });
 
 // password validation
-// 회원가입시 비밀번호 검사
+// password를 DB에 생성, 수정하기 전에 값이 유효(valid)한지 확인(validate)을 하는 코드
+const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,16}$/;
+const passwordRegexErrorMessage =
+  "Should be minimum 8 chracters of alphabet and number combination!";
 userSchema.path("password").validate(function (v) {
   const user = this;
 
@@ -75,6 +92,10 @@ userSchema.path("password").validate(function (v) {
         "passwordConfirmation",
         "Password Confirmation is required."
       );
+    }
+
+    if (!passwordRegex.test(user.password)) {
+      user.invalidate("password", passwordRegexErrorMessage);
     }
     if (user.password !== user.passwordConfirmation) {
       user.invalidate(
@@ -88,11 +109,15 @@ userSchema.path("password").validate(function (v) {
   if (!user.isNew) {
     if (!user.currentPassword) {
       user.invalidate("currentPassword", "Current Password is required!");
-    } else if (user.currentPassword != user.originalPassword) {
+    }
+    // compareSync(실제값, hash로 변환된 값)
+    else if (!bcrypt.compareSync(user.currentPassword, user.originalPassword)) {
       user.invalidate("currentPassword", "Current Password is invalid!");
     }
 
-    if (user.newPassword !== user.passwordConfirmation) {
+    if (user.newPassword && !passwordRegex.test(user.newPassword)) {
+      user.invalidate("newPassword", passwordRegexErrorMessage);
+    } else if (user.newPassword !== user.passwordConfirmation) {
       user.invalidate(
         "passwordConfirmation",
         "Password Confirmation does not matched!"
@@ -100,6 +125,28 @@ userSchema.path("password").validate(function (v) {
     }
   }
 });
+
+// hash password
+userSchema.pre("save", function (next) {
+  const user = this;
+
+  // db 에 기록된 값과 비교해서 변경된 경우 true 그렇지 않으면 false
+  // user 생성시는 항상 true 이며, 수정시는 password 가 변경된 경우에만 true
+  if (!user.isModified("password")) {
+    return next();
+  } else {
+    // user 를 생성하거나 수정시 user.password 의 변경이 있는 경우에는
+    // bcrypt.hashSync 함수로 password 를 hash 값으로 바꿉니다
+    user.password = bcrypt.hashSync(user.password);
+    return next();
+  }
+});
+
+// model methods
+userSchema.methods.authenticate = function (password) {
+  const user = this;
+  return bcrypt.compareSync(password, user.password);
+};
 
 // model & export
 // mongoose.model("user", userSchema) 이부분은 데이터베이스에

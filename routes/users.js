@@ -2,19 +2,19 @@ import express from "express";
 import User from "../models/User";
 import util from "../util";
 
-const router = express.Router();
+const checkPermission = (req, res, next) => {
+  User.findOne({ username: req.params.username }, (err, user) => {
+    if (err) {
+      return res.json(err);
+    }
+    if (user.id != req.user.id) {
+      return util.noPermission(req, res);
+    }
+    next();
+  });
+};
 
-// Index
-router.get("/", (req, res) => {
-  User.find({})
-    .sort({ username: 1 })
-    .exec((err, users) => {
-      if (err) {
-        return res.json(err);
-      }
-      res.render("users/", { users });
-    });
-});
+const router = express.Router();
 
 // New
 router.get("/new", (req, res) => {
@@ -31,12 +31,12 @@ router.post("/", (req, res) => {
       req.flash("errors", util.parseError(err));
       return res.redirect("/users/new");
     }
-    res.redirect("/users");
+    res.redirect("/login");
   });
 });
 
 // show
-router.get("/:username", (req, res) => {
+router.get("/:username", util.isLoggedin, checkPermission, (req, res) => {
   const { username } = req.params;
 
   User.findOne({ username }, (err, user) => {
@@ -49,7 +49,7 @@ router.get("/:username", (req, res) => {
 });
 
 // edit
-router.get("/:username/edit", (req, res) => {
+router.get("/:username/edit", util.isLoggedin, checkPermission, (req, res) => {
   const { username } = req.params;
   const user = req.flash("user")[0];
   const errors = req.flash("errors")[0] || {};
@@ -67,7 +67,7 @@ router.get("/:username/edit", (req, res) => {
 });
 
 // update
-router.put("/:username", (req, res, next) => {
+router.put("/:username", util.isLoggedin, checkPermission, (req, res, next) => {
   const { username } = req.params;
   const { newPassword } = req.body;
 
@@ -95,19 +95,6 @@ router.put("/:username", (req, res, next) => {
         res.redirect("/users/" + user.username);
       });
     });
-});
-
-// delete
-router.delete("/:username", (req, res) => {
-  const { username } = req.params;
-
-  User.deleteOne({ username }, (err) => {
-    if (err) {
-      return res.json(err);
-    }
-
-    res.redirect("/users");
-  });
 });
 
 module.exports = router;

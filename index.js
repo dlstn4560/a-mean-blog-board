@@ -7,6 +7,7 @@ import helmet from "helmet";
 import flash from "connect-flash";
 import session from "express-session";
 import passport from "./config/passport";
+import util from "./util";
 
 dotenv.config();
 
@@ -76,7 +77,10 @@ app.use((req, res, next) => {
 app.use("/", require("./routes/home"));
 
 // Routes - Posts
-app.use("/posts", require("./routes/posts"));
+// util.getPostQueryString 미들웨어를 posts 의 경로들이
+// request 되기 전에 배치하여 모든 post routes 에서
+// res.locals.getPostQueryString 를 사용할 수 있게 하였다
+app.use("/posts", util.getPostQueryString, require("./routes/posts"));
 
 // Routes - Users
 app.use("/users", require("./routes/users"));

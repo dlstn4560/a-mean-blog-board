@@ -2,38 +2,62 @@ import express from "express";
 import Post from "../models/Post";
 import util from "../util";
 
+const checkPermission = (req, res, next) => {
+  Post.findOne({ _id: req.params.id }, (err, post) => {
+    if (err) {
+      return res.json(err);
+    }
+    if (post.author != req.user.id) {
+      return util.noPermission(req, res);
+    }
+    next();
+  });
+};
+
 const router = express.Router();
 
 // Index
-router.get("/", (req, res) => {
-  Post.find({})
+router.get("/", async (req, res) => {
+  let page = Math.max(1, parseInt(req.query.page));
+  let limit = Math.max(1, parseInt(req.query.limit));
+  page = !isNaN(page) ? page : 1;
+  limit = !isNaN(limit) ? limit : 10;
+
+  let skip = (page - 1) * limit;
+  let count = await Post.countDocuments({});
+  let maxPage = Math.ceil(count / limit);
+  let posts = await Post.find({})
     .populate("author")
     .sort("-createdAt")
-    .exec((err, posts) => {
-      if (err) {
-        return res.json(err);
-      }
-      res.render("posts/", { posts });
-    });
+    .skip(skip)
+    .limit(limit)
+    .exec();
+
+  res.render("posts/", {
+    posts,
+    currentPage: page,
+    maxPage,
+    limit,
+  });
 });
 
 // New
-router.get("/new", (req, res) => {
+router.get("/new", util.isLoggedin, (req, res) => {
   const post = req.flash("post")[0] || {};
   const errors = req.flash("errors")[0] || {};
   res.render("posts/new", { post, errors });
 });
 
 // create
-router.post("/", (req, res) => {
+router.post("/", util.isLoggedin, (req, res) => {
   req.body.author = req.user._id;
   Post.create(req.body, (err) => {
     if (err) {
       req.flash("post", req.body);
       req.flash("errors", util.parseError(err));
-      return res.redirect("/posts/new");
+      return res.redirect("/posts/new" + res.locals.getPostQueryString());
     }
-    res.redirect("/posts");
+    res.redirect("/posts" + res.locals.getPostQueryString(false, { page: 1 }));
   });
 });
 
@@ -52,7 +76,7 @@ router.get("/:id", (req, res) => {
 });
 
 // edit
-router.get("/:id/edit", (req, res) => {
+router.get("/:id/edit", util.isLoggedin, checkPermission, (req, res) => {
   const { id } = req.params;
   const post = req.flash("post")[0];
   const errors = req.flash("errors")[0] || {};
@@ -73,7 +97,7 @@ router.get("/:id/edit", (req, res) => {
 });
 
 // update
-router.put("/:id", (req, res) => {
+router.put("/:id", util.isLoggedin, checkPermission, (req, res) => {
   req.body.updatedAt = Date.now();
   const { id } = req.params;
 
@@ -85,22 +109,24 @@ router.put("/:id", (req, res) => {
       if (err) {
         req.flash("post", req.body);
         req.flash("errors", util.parseError(err));
-        return res.redirect(`/posts/${id}/edit`);
+        return res.redirect(
+          `/posts/${id}/edit${res.locals.getPostQueryString()}`
+        );
       }
-      res.redirect(`/posts/${id}`);
+      res.redirect(`/posts/${id}${res.locals.getPostQueryString()}`);
     }
   );
 });
 
 // delete
-router.delete("/:id", (req, res) => {
+router.delete("/:id", util.isLoggedin, checkPermission, (req, res) => {
   const { id } = req.params;
 
   Post.deleteOne({ _id: id }, (err) => {
     if (err) {
       return res.json(err);
     }
-    res.redirect("/posts");
+    res.redirect("/posts" + res.locals.getPostQueryString());
   });
 });
 

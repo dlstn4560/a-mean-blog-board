@@ -36,6 +36,8 @@ passport.use(
         // 비밀번호와 username 을 가져온다
         // 참고로 select("password username") 과
         // select({password: 1, username: 1}) 은 같은 뜻이다
+        // 참고로 찾은 document 의 데이터에는 _id 값이 무조건 포함되어 있다
+        // 즉, 현재 실행문은 _id 값과 password 값을 가져온다
         .select({
           password: 1,
         })

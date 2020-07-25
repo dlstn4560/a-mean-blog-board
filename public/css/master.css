@@ -22,7 +22,8 @@ body {
   width: 100px;
 }
 
-.post-body {
+.post-body,
+.comment-text {
   white-space: pre-line; /* 2 */
 }
 .post-info {
@@ -30,4 +31,16 @@ body {
 }
 .user-form {
   width: 400px;
+}
+
+.post-index-tool {
+  max-width: 450px;
+}
+
+.post-index-tool input[type="text"] {
+  max-width: 130px;
+}
+
+.highlighted {
+  background-color: yellow;
 }

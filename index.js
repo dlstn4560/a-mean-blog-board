@@ -85,6 +85,9 @@ app.use("/posts", util.getPostQueryString, require("./routes/posts"));
 // Routes - Users
 app.use("/users", require("./routes/users"));
 
+// Routes - Comments
+app.use("/comments", util.getPostQueryString, require("./routes/comments"));
+
 // Port Setting
 app.listen(PORT, () => {
   console.log(`Server Starting... ${PORT}`);

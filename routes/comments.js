@@ -17,6 +17,21 @@ const checkPostId = (req, res, next) => {
   });
 };
 
+// private functions
+const checkPermission = (req, res, next) => {
+  const { id } = req.params;
+
+  Comment.findOne({ _id: id }, (err, comment) => {
+    if (err) {
+      return res.json(err);
+    }
+    if (comment.author != req.user.id) {
+      return util.noPermission(req, res);
+    }
+    next();
+  });
+};
+
 // create
 commentRouter.post("/", util.isLoggedin, checkPostId, (req, res) => {
   let post = res.locals.post;
@@ -32,5 +47,64 @@ commentRouter.post("/", util.isLoggedin, checkPostId, (req, res) => {
     return res.redirect("/posts/" + post._id + res.locals.getPostQueryString());
   });
 });
+
+// update
+commentRouter.put(
+  "/:id",
+  util.isLoggedin,
+  checkPermission,
+  checkPostId,
+  (req, res) => {
+    let post = res.locals.post;
+    const { id } = req.params;
+
+    req.body.updatedAt = Date.now();
+    Comment.findOneAndUpdate(
+      { _id: id },
+      req.body,
+      { runValidators: true },
+      (err, comment) => {
+        if (err) {
+          req.flash("commentForm", { _id: id, form: req.body });
+          req.flash("commentError", { _id: id, errors: util.parseError(err) });
+        }
+
+        return res.redirect(
+          `/posts/${post._id + res.locals.getPostQueryString()}`
+        );
+      }
+    );
+  }
+);
+
+// destroy
+commentRouter.delete(
+  "/:id",
+  util.isLoggedin,
+  checkPermission,
+  checkPostId,
+  (req, res) => {
+    let post = res.locals.post;
+    const { id } = req.params;
+
+    Comment.findOne({ _id: id }, (err, comment) => {
+      if (err) {
+        return res.json(err);
+      }
+
+      // save updated comment
+      comment.isDeleted = true;
+      comment.save((err, comment) => {
+        if (err) {
+          return res.json(err);
+        }
+
+        return res.redirect(
+          `/posts/${post._id + res.locals.getPostQueryString()}`
+        );
+      });
+    });
+  }
+);
 
 module.exports = commentRouter;
